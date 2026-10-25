@@ -29,6 +29,8 @@ services:
       - "127.0.0.1:5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ${DATASETS_HOST_PATH:-./datasets}:/datasets:ro
+      - ./sql/fuentes:/sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U olist -d olist"]
       interval: 10s
@@ -68,6 +70,8 @@ services:
       - "127.0.0.1:3307:3306"
     volumes:
       - mariadb_data:/var/lib/mysql
+      - ${DATASETS_HOST_PATH:-./datasets}:/datasets:ro
+      - ./sql/fuentes:/sql:ro
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
@@ -116,6 +120,7 @@ services:
       - ${POSTGRES_JAR_HOST_PATH:-./drivers/postgresql-42.7.4.jar}:/opt/hive/lib/postgresql-42.7.4.jar:ro
       - ${MARIADB_JAR_HOST_PATH:-./drivers/mariadb-java-client-3.4.1.jar}:/opt/hive/lib/mariadb-java-client-3.4.1.jar:ro
       - ${DATASETS_HOST_PATH:-./datasets}:/datasets:ro
+      - ./sql:/opt/gesdb/sql:ro
     ports:
       - "127.0.0.1:10000:10000"
       - "127.0.0.1:10002:10002"
