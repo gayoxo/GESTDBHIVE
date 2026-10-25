@@ -1,0 +1,210 @@
+name: gesdb
+services:
+  hive4-postgres:
+    image: postgres:16
+    container_name: gesdb-metastore-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: metastore_db
+      POSTGRES_USER: hive
+      POSTGRES_PASSWORD: ${METASTORE_PASSWORD:?Set METASTORE_PASSWORD}
+    volumes:
+      - metastore_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hive -d metastore_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    networks: [gesdb_net]
+
+  hive4-postgres2:
+    image: postgres:16
+    container_name: gesdb-postgres-data
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: olist
+      POSTGRES_USER: olist
+      POSTGRES_PASSWORD: ${DATA_POSTGRES_PASSWORD:?Set DATA_POSTGRES_PASSWORD}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U olist -d olist"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    networks:
+      gesdb_net:
+        aliases: [postgres-data]
+
+  hue-postgres:
+    image: postgres:16
+    container_name: gesdb-hue-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: hue
+      POSTGRES_USER: hue
+      POSTGRES_PASSWORD: ${HUE_POSTGRES_PASSWORD:?Set HUE_POSTGRES_PASSWORD}
+    volumes:
+      - hue_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hue -d hue"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    networks: [gesdb_net]
+
+  hive4-mariadb:
+    image: mariadb:10.11
+    container_name: gesdb-mariadb-data
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?Set MARIADB_ROOT_PASSWORD}
+      MARIADB_DATABASE: olist
+      MARIADB_USER: olist
+      MARIADB_PASSWORD: ${MARIADB_USER_PASSWORD:?Set MARIADB_USER_PASSWORD}
+    ports:
+      - "127.0.0.1:3307:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    networks:
+      gesdb_net:
+        aliases: [mariadb-data]
+
+  metastore:
+    image: apache/hive:${HIVE_VERSION:-4.0.1}
+    container_name: gesdb-metastore
+    restart: unless-stopped
+    depends_on:
+      hive4-postgres:
+        condition: service_healthy
+    environment:
+      SERVICE_NAME: metastore
+      DB_DRIVER: postgres
+      SERVICE_OPTS: >-
+        -Xmx1G
+        -Djavax.jdo.option.ConnectionDriverName=org.postgresql.Driver
+        -Djavax.jdo.option.ConnectionURL=jdbc:postgresql://hive4-postgres:5432/metastore_db
+        -Djavax.jdo.option.ConnectionUserName=hive
+        -Djavax.jdo.option.ConnectionPassword=${METASTORE_PASSWORD}
+    volumes:
+      - ${WAREHOUSE_HOST_PATH:-./warehouse}:/opt/hive/data/warehouse
+      - ${POSTGRES_JAR_HOST_PATH:-./drivers/postgresql-42.7.4.jar}:/opt/hive/lib/postgresql-42.7.4.jar:ro
+      - ${MARIADB_JAR_HOST_PATH:-./drivers/mariadb-java-client-3.4.1.jar}:/opt/hive/lib/mariadb-java-client-3.4.1.jar:ro
+      - ${DATASETS_HOST_PATH:-./datasets}:/datasets:ro
+    ports:
+      - "127.0.0.1:9083:9083"
+    networks: [gesdb_net]
+
+  hiveserver2:
+    image: apache/hive:${HIVE_VERSION:-4.0.1}
+    container_name: gesdb-hiveserver2
+    restart: unless-stopped
+    depends_on: [metastore]
+    environment:
+      SERVICE_NAME: hiveserver2
+      IS_RESUME: 'true'
+      SERVICE_OPTS: '-Xmx1G -Dhive.metastore.uris=thrift://metastore:9083'
+    volumes:
+      - ${WAREHOUSE_HOST_PATH:-./warehouse}:/opt/hive/data/warehouse
+      - ${POSTGRES_JAR_HOST_PATH:-./drivers/postgresql-42.7.4.jar}:/opt/hive/lib/postgresql-42.7.4.jar:ro
+      - ${MARIADB_JAR_HOST_PATH:-./drivers/mariadb-java-client-3.4.1.jar}:/opt/hive/lib/mariadb-java-client-3.4.1.jar:ro
+      - ${DATASETS_HOST_PATH:-./datasets}:/datasets:ro
+    ports:
+      - "127.0.0.1:10000:10000"
+      - "127.0.0.1:10002:10002"
+    networks: [gesdb_net]
+
+  hue:
+    image: gethue/hue:${HUE_IMAGE_TAG:-latest}
+    container_name: gesdb-hue
+    restart: unless-stopped
+    depends_on:
+      hue-postgres:
+        condition: service_healthy
+      hiveserver2:
+        condition: service_started
+    volumes:
+      - ./config/hue/hue.ini:/usr/share/hue/desktop/conf/hue.ini:ro
+    environment:
+      HUE_SECRET_KEY: ${HUE_SECRET_KEY:?Set HUE_SECRET_KEY}
+      HUE_DB_PASSWORD: ${HUE_POSTGRES_PASSWORD}
+    ports:
+      - "127.0.0.1:8084:8888"
+    networks: [gesdb_net]
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: gesdb-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:?Set PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?Set PGADMIN_PASSWORD}
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    ports:
+      - "127.0.0.1:8082:80"
+    networks: [gesdb_net]
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: gesdb-phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: hive4-mariadb
+      PMA_PORT: '3306'
+    depends_on:
+      hive4-mariadb:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8083:80"
+    networks: [gesdb_net]
+
+  # Aplica el usuario administrador de .env antes de arrancar File Browser
+  # (la base SQLite no admite cambios mientras el servidor la tiene abierta)
+  filebrowser-init:
+    image: filebrowser/filebrowser:${FILEBROWSER_IMAGE_TAG:-latest}
+    container_name: gesdb-filebrowser-init
+    restart: "no"
+    user: "${FILEBROWSER_UID:-1000}:${FILEBROWSER_GID:-1000}"
+    entrypoint: ["/bin/sh", "/scripts/filebrowser-init.sh"]
+    environment:
+      ADMIN_USER: ${FILEBROWSER_ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${FILEBROWSER_ADMIN_PASSWORD:?Set FILEBROWSER_ADMIN_PASSWORD}
+    volumes:
+      - ./filebrowser/database:/database
+      - ./filebrowser/config:/config
+      - ./scripts/filebrowser-init.sh:/scripts/filebrowser-init.sh:ro
+
+  filebrowser:
+    image: filebrowser/filebrowser:${FILEBROWSER_IMAGE_TAG:-latest}
+    container_name: gesdb-filebrowser
+    restart: unless-stopped
+    user: "${FILEBROWSER_UID:-1000}:${FILEBROWSER_GID:-1000}"
+    depends_on:
+      filebrowser-init:
+        condition: service_completed_successfully
+    volumes:
+      - ${DATASETS_HOST_PATH:-./datasets}:/srv
+      - ./filebrowser/database:/database
+      - ./filebrowser/config:/config
+    ports:
+      - "127.0.0.1:8085:80"
+    networks: [gesdb_net]
+
+volumes:
+  metastore_data:
+  postgres_data:
+  hue_data:
+  mariadb_data:
+  pgadmin_data:
+
+networks:
+  gesdb_net:
+    name: gesdb_net

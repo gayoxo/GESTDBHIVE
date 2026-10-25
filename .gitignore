@@ -1,0 +1,6 @@
+.env
+warehouse/
+datasets/
+filebrowser/database/
+filebrowser/config/
+drivers/*.jar
