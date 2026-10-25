@@ -10,6 +10,8 @@ Se usa el dataset público [Brazilian E-Commerce by Olist](https://www.kaggle.co
 | Sistema de pedidos | PostgreSQL | `orders`, `order_items` |
 | Ficheros | CSV y JSON | productos, categorías, pagos, reseñas |
 
+El modelo de datos del dataset está en [docs/olist_modelo_datos.puml](docs/olist_modelo_datos.puml) (fuente PlantUML) y [docs/olist_modelo_datos.svg](docs/olist_modelo_datos.svg) (imagen).
+
 ```text
 MariaDB ─┐
 PostgreSQL ─┼──► Hive BRONZE ──► Hive SILVER ──► Hive GOLD ──► Consultas (Hue)
@@ -37,17 +39,19 @@ GESDB-2.0/
 ├── .env                      # secretos y rutas (NO se sube a Git)
 ├── .env.example              # plantilla de .env
 ├── config/hue/hue.ini        # Hue -> HiveServer2 (sin secretos)
-├── drivers/                  # JDBC de PostgreSQL y MariaDB para Hive
+├── drivers/                  # JDBC de PostgreSQL y MariaDB para Hive (incluidos)
 ├── datasets/
-│   ├── olist/                # los 9 CSV originales de Kaggle
+│   ├── olist/                # los 9 CSV originales de Kaggle (incluidos, ver su README)
 │   └── landing/              # (generado) una carpeta por tabla para Hive
 ├── sql/
 │   ├── fuentes/              # creación y carga de MariaDB y PostgreSQL
 │   └── hive/                 # 00_databases, 01_bronze, 02_silver, 03_gold, 04_consultas
-├── scripts/                  # 01_preparar_landing, 02_cargar_fuentes, 03_hive
-├── warehouse/                # (generado) datos de Hive en Parquet
-└── docs/interno/             # documentación del profesor
+├── scripts/                  # preflight, 01_preparar_landing, 02_cargar_fuentes, 03_hive
+├── filebrowser/              # configuración de File Browser (su BD se genera)
+└── warehouse/                # (generado) datos de Hive en Parquet
 ```
+
+Lo marcado como *(generado)* y el fichero `.env` están en `.gitignore`: el proyecto se entrega vacío y cada alumno lo genera al seguir estos pasos.
 
 ---
 
@@ -55,18 +59,9 @@ GESDB-2.0/
 
 - Docker Desktop (en Windows con backend WSL2) y unos 8 GB de RAM libres.
 - Un terminal **bash**. En Windows, Git Bash. Todos los comandos se ejecutan desde la carpeta `GESDB-2.0`.
-- Los drivers JDBC en `drivers/`: `postgresql-42.7.4.jar` y `mariadb-java-client-3.4.1.jar`.
-- Los 9 CSV de Olist descomprimidos en `datasets/olist/` (descarga desde Kaggle):
-
-```text
-olist_customers_dataset.csv        olist_orders_dataset.csv
-olist_geolocation_dataset.csv      olist_products_dataset.csv
-olist_order_items_dataset.csv      olist_sellers_dataset.csv
-olist_order_payments_dataset.csv   product_category_name_translation.csv
-olist_order_reviews_dataset.csv
-```
-
 - Libres los puertos 8082–8085, 3307, 5433, 9083, 10000 y 10002.
+
+Los drivers JDBC ([drivers/README.md](drivers/README.md)) y los 9 CSV de Olist ([datasets/olist/README.md](datasets/olist/README.md)) ya vienen incluidos en el proyecto.
 
 ## Paso 1. Configurar `.env`
 
@@ -142,7 +137,7 @@ orders 99441 · order_items 112650         (PostgreSQL)
 
 El script crea las tablas, carga los CSV (`LOAD DATA` en MariaDB y `COPY` en PostgreSQL) y crea en ambas el usuario de solo lectura `OLIST_READER_USER`. Se puede repetir: vacía y recarga las tablas. Los datos se pueden revisar en phpMyAdmin y pgAdmin.
 
-Para registrar el servidor en pgAdmin: *Add New Server* → Host `hive4-postgres2`, puerto `5432`, BD `olist`, usuario `olist`, contraseña `DATA_POSTGRES_PASSWORD`.
+Para registrar el servidor en pgAdmin: *Add New Server* → Host `postgres-data`, puerto `5432`, BD `olist`, usuario `olist`, contraseña `DATA_POSTGRES_PASSWORD`.
 
 ## Paso 5. Hive: Bronze, Silver y Gold
 
@@ -225,7 +220,7 @@ Borra **todas** las bases de datos y metadatos del proyecto:
 
 ```bash
 docker compose down -v                  # contenedores + volúmenes (Metastore, Hue, MariaDB, PostgreSQL, pgAdmin)
-rm -rf warehouse/* datasets/landing     # datos de Hive y ficheros generados
+rm -rf warehouse/*.db datasets/landing filebrowser/database/filebrowser.db   # todo lo generado
 docker compose up -d                    # y repetir desde el paso 2
 ```
 

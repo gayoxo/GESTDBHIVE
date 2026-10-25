@@ -1,6 +1,6 @@
 name: gesdb
 services:
-  hive4-postgres:
+  metastore-db:
     image: postgres:16
     container_name: gesdb-metastore-db
     restart: unless-stopped
@@ -17,7 +17,7 @@ services:
       retries: 15
     networks: [gesdb_net]
 
-  hive4-postgres2:
+  postgres-data:
     image: postgres:16
     container_name: gesdb-postgres-data
     restart: unless-stopped
@@ -36,11 +36,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 15
-    networks:
-      gesdb_net:
-        aliases: [postgres-data]
+    networks: [gesdb_net]
 
-  hue-postgres:
+  hue-db:
     image: postgres:16
     container_name: gesdb-hue-db
     restart: unless-stopped
@@ -57,7 +55,7 @@ services:
       retries: 15
     networks: [gesdb_net]
 
-  hive4-mariadb:
+  mariadb-data:
     image: mariadb:10.11
     container_name: gesdb-mariadb-data
     restart: unless-stopped
@@ -77,16 +75,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 15
-    networks:
-      gesdb_net:
-        aliases: [mariadb-data]
+    networks: [gesdb_net]
 
   metastore:
     image: apache/hive:${HIVE_VERSION:-4.0.1}
     container_name: gesdb-metastore
     restart: unless-stopped
     depends_on:
-      hive4-postgres:
+      metastore-db:
         condition: service_healthy
     environment:
       SERVICE_NAME: metastore
@@ -94,7 +90,7 @@ services:
       SERVICE_OPTS: >-
         -Xmx1G
         -Djavax.jdo.option.ConnectionDriverName=org.postgresql.Driver
-        -Djavax.jdo.option.ConnectionURL=jdbc:postgresql://hive4-postgres:5432/metastore_db
+        -Djavax.jdo.option.ConnectionURL=jdbc:postgresql://metastore-db:5432/metastore_db
         -Djavax.jdo.option.ConnectionUserName=hive
         -Djavax.jdo.option.ConnectionPassword=${METASTORE_PASSWORD}
     volumes:
@@ -131,7 +127,7 @@ services:
     container_name: gesdb-hue
     restart: unless-stopped
     depends_on:
-      hue-postgres:
+      hue-db:
         condition: service_healthy
       hiveserver2:
         condition: service_started
@@ -162,10 +158,10 @@ services:
     container_name: gesdb-phpmyadmin
     restart: unless-stopped
     environment:
-      PMA_HOST: hive4-mariadb
+      PMA_HOST: mariadb-data
       PMA_PORT: '3306'
     depends_on:
-      hive4-mariadb:
+      mariadb-data:
         condition: service_healthy
     ports:
       - "127.0.0.1:8083:80"

@@ -1,6 +1,12 @@
+# Secretos: cada alumno crea su .env a partir de .env.example
 .env
-warehouse/
-datasets/
-filebrowser/database/
-filebrowser/config/
-drivers/*.jar
+
+# Documentacion del profesor: no se entrega a los alumnos
+docs/interno/
+
+# Generado al ejecutar la practica (se conserva la carpeta vacia con .gitkeep)
+warehouse/*
+!warehouse/.gitkeep
+datasets/landing/
+filebrowser/database/*
+!filebrowser/database/.gitkeep

@@ -1,17 +1,12 @@
 # GESDB 2.0 — Documentación interna del profesor
 
 > Documento interno, no se entrega a los alumnos. Explica el porqué de cada decisión, el proceso completo y los resultados esperados. Los pasos de ejecución están en el [README](../../README.md).
+>
+> Los diagramas se editan en [plantuml/](plantuml/), en los ficheros `.puml` del 01 al 07. Este documento muestra los `.svg` generados a partir de ellos. Después de cambiar un `.puml`, se regeneran con `bash docs/interno/plantuml/render.sh` (necesita Docker). El modelo general del dataset, que sí se entrega a los alumnos, está en [../olist_modelo_datos.puml](../olist_modelo_datos.puml).
 
 ## 1. Objetivo docente
 
-La práctica anterior (scraping de Wikipedia → NER → MariaDB/PostgreSQL/CSV → tabla única en Hive) dedicaba casi todo el tiempo a **obtener** los datos, y Hive aparecía al final como un mero "pegamento". Esta versión invierte el reparto:
-
-| Antes | Ahora |
-|---|---|
-| Scraping + NER: la mayor parte del tiempo | 0 minutos: dataset público ya relacionado (Olist) |
-| Entidades sin relación natural (persona, empresa, lugar) | Identificadores reales entre sistemas (`customer_id`, `order_id`...) |
-| Hive: una tabla única | Hive: tres capas, ELT con HiveQL, estrella, particiones, federación |
-| Pregunta final: "esta persona está relacionada con esta empresa" | Pregunta de negocio: "qué categorías generan más ingresos por estado y mes" |
+Los alumnos construyen un pequeño Data Warehouse empresarial con Apache Hive a partir de tres sistemas de origen heterogéneos. Se parte de un dataset público con identificadores reales entre sistemas (Olist), así que no se dedica tiempo a obtener datos: casi toda la sesión se centra en Hive. La práctica gira en torno a una pregunta de negocio: *¿qué categorías de producto generan más ingresos en cada estado y mes?* Para responderla hay que integrar clientes (MariaDB), pedidos (PostgreSQL) y productos (CSV).
 
 Qué tienen que llevarse los alumnos:
 
@@ -26,50 +21,9 @@ Qué tienen que llevarse los alumnos:
 
 ## 2. Arquitectura
 
-```plantuml
-@startuml arquitectura
-!theme plain
-skinparam componentStyle rectangle
-left to right direction
+![01_arquitectura](plantuml/01_arquitectura.svg)
 
-package "Gestión web" {
-  [Hue :8084] as hue
-  [phpMyAdmin :8083] as pma
-  [pgAdmin :8082] as pga
-  [File Browser :8085] as fb
-}
-
-package "Fuentes operacionales (OLTP)" {
-  database "MariaDB\nolist\ncustomers, sellers" as maria
-  database "PostgreSQL datos\nolist\norders, order_items" as pgdata
-  folder "datasets/landing\nproductos, categorias,\npagos (CSV), resenas (JSON)" as files
-}
-
-package "Apache Hive 4.0.1" {
-  [HiveServer2 :10000\n(Tez local)] as hs2
-  [Metastore :9083] as hms
-  folder "warehouse/\nbronze.db silver.db gold.db\n(Parquet)" as wh
-}
-
-package "Servicios internos" {
-  database "PostgreSQL\nmetastore_db" as pgmeta
-  database "PostgreSQL\nhue" as pghue
-}
-
-hue --> hs2 : HiveQL
-hue --> pghue
-pma --> maria
-pga --> pgdata
-fb --> files
-
-hs2 --> hms
-hms --> pgmeta
-hs2 --> maria : JDBC (hive_reader)
-hs2 --> pgdata : JDBC (hive_reader)
-hs2 --> files : file:///datasets
-hs2 --> wh : CTAS / INSERT
-@enduml
-```
+*Fuente: [plantuml/01_arquitectura.puml](plantuml/01_arquitectura.puml)*
 
 Decisiones de infraestructura:
 
@@ -83,36 +37,9 @@ Decisiones de infraestructura:
 
 ## 3. Proceso completo (ELT)
 
-```plantuml
-@startuml proceso
-!theme plain
-start
-:Kaggle: 9 CSV en datasets/olist;
-partition "Fase 1 · 01_preparar_landing.sh" {
-  :Copiar productos, categorias y pagos
-  a datasets/landing/<tabla>/;
-  :Convertir reseñas CSV -> JSON Lines
-  (comentarios con saltos de línea);
-}
-partition "Fase 2 · 02_cargar_fuentes.sh" {
-  :MariaDB: LOAD DATA customers, sellers;
-  :PostgreSQL: COPY orders, order_items;
-  :Crear usuario hive_reader (SELECT);
-}
-partition "Fase 3 · 03_hive.sh" {
-  :01_bronze: tablas EXTERNAS
-  (JDBC + OpenCSVSerde + JsonSerDe);
-  note right: Extract + Load\nsin copiar datos
-  :02_silver: CTAS a Parquet
-  tipos, limpieza, deduplicación, integración;
-  note right: Transform\ncon HiveQL
-  :03_gold: estrella + particiones
-  + agregado mensual;
-}
-:04_consultas en Hue;
-stop
-@enduml
-```
+![02_proceso_elt](plantuml/02_proceso_elt.svg)
+
+*Fuente: [plantuml/02_proceso_elt.puml](plantuml/02_proceso_elt.puml)*
 
 ### 3.1 ETL frente a ELT
 
@@ -136,447 +63,39 @@ Demostración en clase: cambiar un `order_status` en pgAdmin y comparar `bronze.
 
 ### 4.1 Linaje: de la fuente a Gold
 
-```plantuml
-@startuml linaje
-!theme plain
-left to right direction
-skinparam rectangle {
-  RoundCorner 8
-}
+![03_linaje](plantuml/03_linaje.svg)
 
-package "Fuentes" {
-  rectangle "MariaDB\ncustomers" as s_cus
-  rectangle "MariaDB\nsellers" as s_sel
-  rectangle "PostgreSQL\norders" as s_ord
-  rectangle "PostgreSQL\norder_items" as s_itm
-  rectangle "CSV\nproducts" as s_prd
-  rectangle "CSV\ncategory_translation" as s_cat
-  rectangle "CSV\npayments" as s_pay
-  rectangle "JSON\nreviews" as s_rev
-}
-
-package "Bronze (externas)" #F5E6D3 {
-  rectangle "clientes" as b_cli
-  rectangle "vendedores" as b_ven
-  rectangle "pedidos" as b_ped
-  rectangle "articulos" as b_art
-  rectangle "productos" as b_prd
-  rectangle "categorias" as b_cat
-  rectangle "pagos" as b_pag
-  rectangle "resenas" as b_res
-}
-
-package "Silver (Parquet)" #E8E8E8 {
-  rectangle "clientes" as v_cli
-  rectangle "vendedores" as v_ven
-  rectangle "pedidos" as v_ped
-  rectangle "articulos" as v_art
-  rectangle "productos" as v_prd
-  rectangle "pagos_pedido" as v_pag
-  rectangle "resenas" as v_res
-  rectangle "ventas" as v_ven2
-}
-
-package "Gold (estrella)" #FFF3C4 {
-  rectangle "dim_cliente" as g_cli
-  rectangle "dim_vendedor" as g_ven
-  rectangle "dim_producto" as g_prd
-  rectangle "dim_tiempo" as g_tie
-  rectangle "fact_ventas" as g_fact
-  rectangle "ventas_mensuales" as g_agg
-}
-
-s_cus --> b_cli
-s_sel --> b_ven
-s_ord --> b_ped
-s_itm --> b_art
-s_prd --> b_prd
-s_cat --> b_cat
-s_pay --> b_pag
-s_rev --> b_res
-
-b_cli --> v_cli
-b_ven --> v_ven
-b_ped --> v_ped
-b_art --> v_art
-b_prd --> v_prd
-b_cat --> v_prd : traducción
-b_pag --> v_pag : GROUP BY order_id
-b_res --> v_res : ROW_NUMBER()
-
-v_ped --> v_ven2
-v_art --> v_ven2
-v_cli --> v_ven2
-v_ven --> v_ven2
-v_prd --> v_ven2
-v_res --> v_ven2
-
-v_cli --> g_cli
-v_ven --> g_ven
-v_prd --> g_prd
-v_ped --> g_tie : fechas
-v_ven2 --> g_fact : PARTITION (anio, mes)
-g_fact --> g_agg
-g_cli --> g_agg
-g_prd --> g_agg
-g_tie --> g_agg
-@enduml
-```
+*Fuente: [plantuml/03_linaje.puml](plantuml/03_linaje.puml)*
 
 ### 4.2 Fuentes operacionales (OLTP)
 
 Las relaciones entre sistemas (líneas discontinuas) **no existen como claves foráneas**: cada base de datos es independiente. Reconstruirlas es precisamente el trabajo de integración.
 
-```plantuml
-@startuml fuentes
-!theme plain
-hide circle
-skinparam linetype ortho
+![04_fuentes](plantuml/04_fuentes.svg)
 
-package "MariaDB · olist" #DDEEFF {
-  entity customers {
-    * customer_id : VARCHAR(32) <<PK>>
-    --
-    customer_unique_id : VARCHAR(32)
-    customer_zip_code_prefix : VARCHAR(10)
-    customer_city : VARCHAR(100)
-    customer_state : CHAR(2)
-  }
-  entity sellers {
-    * seller_id : VARCHAR(32) <<PK>>
-    --
-    seller_zip_code_prefix : VARCHAR(10)
-    seller_city : VARCHAR(100)
-    seller_state : CHAR(2)
-  }
-}
-
-package "PostgreSQL · olist" #DDFFDD {
-  entity orders {
-    * order_id : VARCHAR(32) <<PK>>
-    --
-    customer_id : VARCHAR(32)
-    order_status : VARCHAR(20)
-    order_purchase_timestamp : TIMESTAMP
-    order_approved_at : TIMESTAMP
-    order_delivered_carrier_date : TIMESTAMP
-    order_delivered_customer_date : TIMESTAMP
-    order_estimated_delivery_date : TIMESTAMP
-  }
-  entity order_items {
-    * order_id : VARCHAR(32) <<PK, FK>>
-    * order_item_id : INTEGER <<PK>>
-    --
-    product_id : VARCHAR(32)
-    seller_id : VARCHAR(32)
-    shipping_limit_date : TIMESTAMP
-    price : NUMERIC(12,2)
-    freight_value : NUMERIC(12,2)
-  }
-}
-
-package "Ficheros · datasets/landing" #FFEEDD {
-  entity "products.csv" as products {
-    product_id
-    product_category_name
-    product_name_lenght
-    product_description_lenght
-    product_photos_qty
-    product_weight_g
-    product_length_cm / height / width
-  }
-  entity "category_translation.csv" as cat {
-    product_category_name
-    product_category_name_english
-  }
-  entity "payments.csv" as payments {
-    order_id
-    payment_sequential
-    payment_type
-    payment_installments
-    payment_value
-  }
-  entity "reviews.jsonl" as reviews {
-    review_id
-    order_id
-    review_score
-    review_comment_title
-    review_comment_message
-    review_creation_date
-    review_answer_timestamp
-  }
-}
-
-orders ||--|{ order_items
-orders }o..|| customers : customer_id
-order_items }o..|| sellers : seller_id
-order_items }o..|| products : product_id
-products }o..o| cat : category_name
-orders ||..o{ payments : order_id
-orders ||..o{ reviews : order_id
-@enduml
-```
+*Fuente: [plantuml/04_fuentes.puml](plantuml/04_fuentes.puml)*
 
 ### 4.3 Bronze: esquema impuesto en lectura
 
 Mismas columnas que la fuente. Los ficheros se leen **todo como STRING** (OpenCSVSerde no tipa) y en los CSV los vacíos llegan como `''`, no como `NULL`. Las tablas JDBC heredan los tipos de la fuente.
 
-```plantuml
-@startuml bronze
-!theme plain
-hide circle
-skinparam linetype ortho
+![05_bronze](plantuml/05_bronze.svg)
 
-package "bronze · JdbcStorageHandler (MariaDB)" #DDEEFF {
-  entity clientes {
-    customer_id : STRING
-    customer_unique_id : STRING
-    customer_zip_code_prefix : STRING
-    customer_city : STRING
-    customer_state : STRING
-  }
-  entity vendedores {
-    seller_id : STRING
-    seller_zip_code_prefix : STRING
-    seller_city : STRING
-    seller_state : STRING
-  }
-}
-
-package "bronze · JdbcStorageHandler (PostgreSQL)" #DDFFDD {
-  entity pedidos {
-    order_id : STRING
-    customer_id : STRING
-    order_status : STRING
-    order_purchase_timestamp : TIMESTAMP
-    order_approved_at : TIMESTAMP
-    order_delivered_carrier_date : TIMESTAMP
-    order_delivered_customer_date : TIMESTAMP
-    order_estimated_delivery_date : TIMESTAMP
-  }
-  entity articulos {
-    order_id : STRING
-    order_item_id : INT
-    product_id : STRING
-    seller_id : STRING
-    shipping_limit_date : TIMESTAMP
-    price : DECIMAL(12,2)
-    freight_value : DECIMAL(12,2)
-  }
-}
-
-package "bronze · OpenCSVSerde / JsonSerDe" #FFEEDD {
-  entity productos {
-    product_id : STRING
-    product_category_name : STRING
-    ... 7 columnas : STRING
-  }
-  entity categorias {
-    product_category_name : STRING
-    product_category_name_english : STRING
-  }
-  entity pagos {
-    order_id : STRING
-    payment_sequential : STRING
-    payment_type : STRING
-    payment_installments : STRING
-    payment_value : STRING
-  }
-  entity resenas <<JSON>> {
-    review_id : STRING
-    order_id : STRING
-    review_score : STRING
-    review_comment_title : STRING
-    review_comment_message : STRING
-    review_creation_date : STRING
-    review_answer_timestamp : STRING
-  }
-}
-@enduml
-```
+*Fuente: [plantuml/05_bronze.puml](plantuml/05_bronze.puml)*
 
 ### 4.4 Silver: tipado, limpio e integrado
 
 Cada tabla declara su **grano**. `ventas` es la tabla integrada que cruza las tres fuentes.
 
-```plantuml
-@startuml silver
-!theme plain
-hide circle
-skinparam linetype ortho
+![06_silver](plantuml/06_silver.svg)
 
-package "silver · Parquet" #E8E8E8 {
-  entity clientes <<grano: customer_id>> {
-    * customer_id : STRING
-    --
-    customer_unique_id : STRING
-    codigo_postal : STRING  <<LPAD 5>>
-    ciudad : STRING         <<UPPER/TRIM>>
-    estado : STRING
-  }
-  entity vendedores <<grano: vendedor>> {
-    * seller_id : STRING
-    --
-    codigo_postal : STRING
-    ciudad : STRING   <<antes de la 1a coma>>
-    estado : STRING
-  }
-  entity productos <<grano: producto>> {
-    * product_id : STRING
-    --
-    categoria : STRING     <<'' -> sin_categoria>>
-    categoria_en : STRING  <<JOIN traducción>>
-    num_fotos : INT
-    peso_g : INT
-    largo_cm / alto_cm / ancho_cm : INT
-  }
-  entity pedidos <<grano: pedido>> {
-    * order_id : STRING
-    --
-    customer_id : STRING
-    estado : STRING
-    fecha_hora_compra : TIMESTAMP
-    fecha_compra : DATE
-    fecha_aprobacion / fecha_envio / fecha_entrega : TIMESTAMP
-    fecha_entrega_estimada : DATE
-    dias_entrega : INT        <<derivada>>
-    con_retraso : BOOLEAN     <<derivada>>
-  }
-  entity articulos <<grano: línea de pedido>> {
-    * order_id : STRING
-    * order_item_id : INT
-    --
-    product_id : STRING
-    seller_id : STRING
-    fecha_limite_envio : TIMESTAMP
-    precio : DECIMAL(12,2)
-    transporte : DECIMAL(12,2)
-  }
-  entity pagos_pedido <<grano: pedido>> {
-    * order_id : STRING
-    --
-    num_pagos : BIGINT
-    importe_pagado : DECIMAL
-    max_cuotas : INT
-    medios_pago : STRING
-  }
-  entity resenas <<grano: pedido>> {
-    * order_id : STRING
-    --
-    review_id : STRING
-    puntuacion : INT
-    titulo : STRING
-    comentario : STRING   <<sin saltos de línea>>
-    fecha_resena : TIMESTAMP
-  }
-  entity ventas <<grano: artículo entregado>> {
-    * order_id : STRING
-    * order_item_id : INT
-    --
-    customer_id / customer_unique_id : STRING
-    estado_cliente / ciudad_cliente : STRING
-    seller_id / estado_vendedor : STRING
-    product_id / categoria / categoria_en : STRING
-    fecha_compra : DATE
-    dias_entrega : INT
-    con_retraso : BOOLEAN
-    precio / transporte : DECIMAL(12,2)
-    puntuacion : INT
-  }
-}
-
-pedidos ||--|{ articulos
-pedidos }o--|| clientes
-articulos }o--|| vendedores
-articulos }o--|| productos
-pedidos ||--o| pagos_pedido
-pedidos ||--o| resenas
-ventas .up.> articulos : integra
-@enduml
-```
+*Fuente: [plantuml/06_silver.puml](plantuml/06_silver.puml)*
 
 ### 4.5 Gold: modelo en estrella
 
-```plantuml
-@startuml gold
-!theme plain
-hide circle
-skinparam linetype ortho
+![07_gold](plantuml/07_gold.svg)
 
-entity fact_ventas <<hechos · grano: artículo vendido>> #FFF3C4 {
-  order_id : STRING
-  order_item_id : INT
-  --
-  customer_id : STRING <<FK>>
-  seller_id : STRING <<FK>>
-  product_id : STRING <<FK>>
-  fecha_compra : DATE <<FK>>
-  --
-  precio : DECIMAL(12,2)
-  transporte : DECIMAL(12,2)
-  importe_total : DECIMAL(12,2)
-  dias_entrega : INT
-  con_retraso : BOOLEAN
-  puntuacion : INT
-  ==
-  anio : INT <<PARTITION>>
-  mes : INT <<PARTITION>>
-}
-
-entity dim_cliente {
-  * customer_id : STRING
-  --
-  customer_unique_id : STRING
-  codigo_postal : STRING
-  ciudad : STRING
-  estado : STRING
-}
-entity dim_vendedor {
-  * seller_id : STRING
-  --
-  codigo_postal : STRING
-  ciudad : STRING
-  estado : STRING
-}
-entity dim_producto {
-  * product_id : STRING
-  --
-  categoria : STRING
-  categoria_en : STRING
-  num_fotos : INT
-  peso_g : INT
-  largo_cm / alto_cm / ancho_cm : INT
-}
-entity dim_tiempo {
-  * fecha : DATE
-  --
-  anio : INT
-  trimestre : INT
-  mes : INT
-  anio_mes : STRING
-  dia : INT
-  dia_semana : INT
-  fin_de_semana : BOOLEAN
-}
-entity ventas_mensuales <<agregado>> {
-  estado_cliente : STRING
-  categoria : STRING
-  anio : INT
-  mes : INT
-  --
-  articulos_vendidos : BIGINT
-  pedidos : BIGINT
-  ingresos : DECIMAL
-  puntuacion_media : DOUBLE
-}
-
-dim_cliente ||--o{ fact_ventas
-dim_vendedor ||--o{ fact_ventas
-dim_producto ||--o{ fact_ventas
-dim_tiempo ||--o{ fact_ventas
-fact_ventas ..> ventas_mensuales : GROUP BY
-@enduml
-```
+*Fuente: [plantuml/07_gold.puml](plantuml/07_gold.puml)*
 
 ## 5. Explicación de cada fase
 
@@ -662,7 +181,7 @@ Valores obtenidos en la ejecución de validación. Sirven para comprobar que el 
 
 | Tiempo | Contenido | Material |
 |---|---|---|
-| 0–15 min | Problema de negocio, fuentes y arquitectura. Diapositiva "de Wikipedia a Olist". | Diagramas 2 y 4.2 |
+| 0–15 min | Problema de negocio, fuentes y arquitectura. | Diagramas 2 y 4.2 |
 | 15–30 min | Olist en sus sistemas: recorrer phpMyAdmin, pgAdmin y File Browser | Fase 2 ya ejecutada |
 | 30–50 min | Bronze: tablas externas JDBC y SerDe. *Schema-on-read*. Federación en vivo (cambiar un dato en pgAdmin) | `01_bronze.hql`, consulta 9 |
 | 50–75 min | Silver: limpieza e integración con HiveQL. ELT frente a ETL | `02_silver.hql`, tabla de la sección 5 |
@@ -692,4 +211,4 @@ Con 100.000 pedidos en un Docker de un nodo **no se demuestra rendimiento**: las
 3. **ORC frente a Parquet**: repetir `silver.ventas` con `STORED AS ORC` y comparar el tamaño en disco (`du -sh warehouse/silver.db/*`).
 4. **SCD**: un cliente cambia de ciudad. ¿Cómo lo reflejaría `dim_cliente`? (SCD tipo 1 frente a tipo 2.)
 5. **Calidad de datos**: consultas de control (pedidos entregados sin fecha de entrega, artículos con precio 0, reseñas de pedidos inexistentes).
-6. **IA sobre reseñas** (extensión opcional del hilo original): etiquetar 100–200 comentarios con un modelo local (sentimiento, aspecto, incidencia), guardarlos en `landing/resenas_ia/` como JSON y unirlos en Silver. Se hace antes de clase para no depender del modelo en directo.
+6. **IA sobre reseñas** (extensión opcional): etiquetar 100–200 comentarios con un modelo local (sentimiento, aspecto, incidencia), guardarlos en `landing/resenas_ia/` como JSON y unirlos en Silver. Se hace antes de clase para no depender del modelo en directo.

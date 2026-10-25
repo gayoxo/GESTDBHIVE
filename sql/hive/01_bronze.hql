@@ -23,7 +23,7 @@ STORED BY 'org.apache.hive.storage.jdbc.JdbcStorageHandler'
 TBLPROPERTIES (
     "hive.sql.database.type" = "MYSQL",
     "hive.sql.jdbc.driver"   = "org.mariadb.jdbc.Driver",
-    "hive.sql.jdbc.url"      = "jdbc:mariadb://hive4-mariadb:3306/olist",
+    "hive.sql.jdbc.url"      = "jdbc:mariadb://mariadb-data:3306/olist",
     "hive.sql.dbcp.username" = "${hivevar:reader_user}",
     "hive.sql.dbcp.password" = "${hivevar:reader_password}",
     "hive.sql.table"         = "customers"
@@ -40,7 +40,7 @@ STORED BY 'org.apache.hive.storage.jdbc.JdbcStorageHandler'
 TBLPROPERTIES (
     "hive.sql.database.type" = "MYSQL",
     "hive.sql.jdbc.driver"   = "org.mariadb.jdbc.Driver",
-    "hive.sql.jdbc.url"      = "jdbc:mariadb://hive4-mariadb:3306/olist",
+    "hive.sql.jdbc.url"      = "jdbc:mariadb://mariadb-data:3306/olist",
     "hive.sql.dbcp.username" = "${hivevar:reader_user}",
     "hive.sql.dbcp.password" = "${hivevar:reader_password}",
     "hive.sql.table"         = "sellers"
@@ -62,7 +62,7 @@ STORED BY 'org.apache.hive.storage.jdbc.JdbcStorageHandler'
 TBLPROPERTIES (
     "hive.sql.database.type" = "POSTGRES",
     "hive.sql.jdbc.driver"   = "org.postgresql.Driver",
-    "hive.sql.jdbc.url"      = "jdbc:postgresql://hive4-postgres2:5432/olist",
+    "hive.sql.jdbc.url"      = "jdbc:postgresql://postgres-data:5432/olist",
     "hive.sql.dbcp.username" = "${hivevar:reader_user}",
     "hive.sql.dbcp.password" = "${hivevar:reader_password}",
     "hive.sql.table"         = "orders"
@@ -82,7 +82,7 @@ STORED BY 'org.apache.hive.storage.jdbc.JdbcStorageHandler'
 TBLPROPERTIES (
     "hive.sql.database.type" = "POSTGRES",
     "hive.sql.jdbc.driver"   = "org.postgresql.Driver",
-    "hive.sql.jdbc.url"      = "jdbc:postgresql://hive4-postgres2:5432/olist",
+    "hive.sql.jdbc.url"      = "jdbc:postgresql://postgres-data:5432/olist",
     "hive.sql.dbcp.username" = "${hivevar:reader_user}",
     "hive.sql.dbcp.password" = "${hivevar:reader_password}",
     "hive.sql.table"         = "order_items"
