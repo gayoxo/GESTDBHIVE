@@ -1,0 +1,16 @@
+# Los scripts y la configuracion se ejecutan dentro de contenedores Linux:
+# siempre LF, aunque el alumno clone en Windows con core.autocrlf=true.
+*.sh          text eol=lf
+*.py          text eol=lf
+*.sql         text eol=lf
+*.hql         text eol=lf
+*.ini         text eol=lf
+*.yml         text eol=lf
+*.json        text eol=lf
+*.puml        text eol=lf
+.env.example  text eol=lf
+
+# Datos originales de Kaggle: se guardan byte a byte, sin convertir finales
+# de linea (la carga en MariaDB depende de ello y el README publica su SHA-256).
+*.csv         -text
+*.jar         binary

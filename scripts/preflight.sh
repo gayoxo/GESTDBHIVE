@@ -7,6 +7,7 @@ ok()    { echo "OK      $1"; }
 falta() { echo "FALTA   $1"; fallos=$((fallos + 1)); }
 
 echo '== Docker'
+docker info >/dev/null 2>&1 || { echo 'FALTA   Docker en marcha (arrancar Docker Desktop)'; exit 1; }
 docker compose version
 
 echo '== Configuracion'

@@ -204,6 +204,14 @@ Tablas **materializadas en Parquet** dentro de `warehouse/silver.db`: tipos corr
 
 [sql/hive/04_consultas.hql](sql/hive/04_consultas.hql) contiene 9 consultas pensadas para ejecutarse **una a una en Hue**: ingresos por estado, categoría y mes, efecto del retraso en la valoración, la trampa de granularidad, el *partition pruning* y la consulta federada a PostgreSQL.
 
+## Paso 6. Verificar
+
+```bash
+bash scripts/04_verificar.sh
+```
+
+Comprueba, sin modificar nada, que las fuentes y las 22 tablas de Hive tienen las filas esperadas, que `fact_ventas` tiene sus 23 particiones y que las cuatro webs responden. Termina con `Verificacion correcta` o indica qué tabla o servicio falla.
+
 ---
 
 ## Operación diaria
