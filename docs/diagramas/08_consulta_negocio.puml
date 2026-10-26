@@ -1,0 +1,23 @@
+@startuml 08_consulta_negocio
+!theme plain
+skinparam linetype ortho
+title ¿Qué categorías generan más ingresos en cada estado y mes?
+
+rectangle "1. FROM gold.fact_ventas\n(grano: artículo vendido)\nWHERE anio = 2018\n→ solo particiones de 2018" as f #FFF3C4
+rectangle "2. JOIN gold.dim_cliente\nON customer_id\n→ estado del cliente (MariaDB)" as c
+rectangle "3. JOIN gold.dim_producto\nON product_id\n→ categoría en inglés (CSV)" as p
+rectangle "4. GROUP BY estado, categoría, anio, mes\nCOUNT(*) artículos · SUM(precio) ingresos" as g
+rectangle "5. ORDER BY ingresos DESC\nLIMIT 20" as o
+rectangle "Resultado\nSP · health_beauty · 2018-08\n409 artículos · 49.676,60" as r #DDFFDD
+
+f --> c
+c --> p
+p --> g
+g --> o
+o --> r
+
+note right of f
+  Los pedidos y artículos
+  vienen de PostgreSQL
+end note
+@enduml

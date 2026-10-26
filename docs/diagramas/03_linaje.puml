@@ -1,0 +1,84 @@
+@startuml 03_linaje
+!theme plain
+left to right direction
+skinparam rectangle {
+  RoundCorner 8
+}
+
+package "Fuentes" {
+  rectangle "MariaDB\ncustomers" as s_cus
+  rectangle "MariaDB\nsellers" as s_sel
+  rectangle "PostgreSQL\norders" as s_ord
+  rectangle "PostgreSQL\norder_items" as s_itm
+  rectangle "CSV\nproducts" as s_prd
+  rectangle "CSV\ncategory_translation" as s_cat
+  rectangle "CSV\npayments" as s_pay
+  rectangle "JSON\nreviews" as s_rev
+}
+
+package "Bronze (externas)" #F5E6D3 {
+  rectangle "clientes" as b_cli
+  rectangle "vendedores" as b_ven
+  rectangle "pedidos" as b_ped
+  rectangle "articulos" as b_art
+  rectangle "productos" as b_prd
+  rectangle "categorias" as b_cat
+  rectangle "pagos" as b_pag
+  rectangle "resenas" as b_res
+}
+
+package "Silver (Parquet)" #E8E8E8 {
+  rectangle "clientes" as v_cli
+  rectangle "vendedores" as v_ven
+  rectangle "pedidos" as v_ped
+  rectangle "articulos" as v_art
+  rectangle "productos" as v_prd
+  rectangle "pagos_pedido" as v_pag
+  rectangle "resenas" as v_res
+  rectangle "ventas" as v_ven2
+}
+
+package "Gold (estrella)" #FFF3C4 {
+  rectangle "dim_cliente" as g_cli
+  rectangle "dim_vendedor" as g_ven
+  rectangle "dim_producto" as g_prd
+  rectangle "dim_tiempo" as g_tie
+  rectangle "fact_ventas" as g_fact
+  rectangle "ventas_mensuales" as g_agg
+}
+
+s_cus --> b_cli
+s_sel --> b_ven
+s_ord --> b_ped
+s_itm --> b_art
+s_prd --> b_prd
+s_cat --> b_cat
+s_pay --> b_pag
+s_rev --> b_res
+
+b_cli --> v_cli
+b_ven --> v_ven
+b_ped --> v_ped
+b_art --> v_art
+b_prd --> v_prd
+b_cat --> v_prd : traducción
+b_pag --> v_pag : GROUP BY order_id
+b_res --> v_res : ROW_NUMBER()
+
+v_ped --> v_ven2
+v_art --> v_ven2
+v_cli --> v_ven2
+v_ven --> v_ven2
+v_prd --> v_ven2
+v_res --> v_ven2
+
+v_cli --> g_cli
+v_ven --> g_ven
+v_prd --> g_prd
+v_ped --> g_tie : fechas
+v_ven2 --> g_fact : PARTITION (anio, mes)
+g_fact --> g_agg
+g_cli --> g_agg
+g_prd --> g_agg
+g_tie --> g_agg
+@enduml

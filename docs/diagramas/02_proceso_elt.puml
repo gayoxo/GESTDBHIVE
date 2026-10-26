@@ -1,0 +1,28 @@
+@startuml 02_proceso_elt
+!theme plain
+start
+:Kaggle: 9 CSV en datasets/olist;
+partition "Fase 1 · 01_preparar_landing.sh" {
+  :Copiar productos, categorias y pagos
+  a datasets/landing/<tabla>/;
+  :Convertir reseñas CSV -> JSON Lines
+  (comentarios con saltos de línea);
+}
+partition "Fase 2 · 02_cargar_fuentes.sh" {
+  :MariaDB: LOAD DATA customers, sellers;
+  :PostgreSQL: COPY orders, order_items;
+  :Crear usuario hive_reader (SELECT);
+}
+partition "Fase 3 · 03_hive.sh" {
+  :01_bronze: tablas EXTERNAS
+  (JDBC + OpenCSVSerde + JsonSerDe);
+  note right: Extract + Load\nsin copiar datos
+  :02_silver: CTAS a Parquet
+  tipos, limpieza, deduplicación, integración;
+  note right: Transform\ncon HiveQL
+  :03_gold: estrella + particiones
+  + agregado mensual;
+}
+:04_consultas en Hue;
+stop
+@enduml

@@ -2,7 +2,7 @@
 
 > Documento interno, no se entrega a los alumnos. Explica el porqué de cada decisión, el proceso completo y los resultados esperados. Los pasos de ejecución están en el [README](../../README.md).
 >
-> Los diagramas se editan en [plantuml/](plantuml/), en los ficheros `.puml` del 01 al 07. Este documento muestra los `.svg` generados a partir de ellos. Después de cambiar un `.puml`, se regeneran con `bash docs/interno/plantuml/render.sh` (necesita Docker). El modelo general del dataset, que sí se entrega a los alumnos, está en [../olist_modelo_datos.puml](../olist_modelo_datos.puml).
+> Los diagramas están en [../diagramas/](../diagramas/) (`.puml` + `.svg`), compartidos con la guía de los alumnos [../DESARROLLO.md](../DESARROLLO.md). Después de cambiar un `.puml`, se regeneran con `bash docs/diagramas/render.sh` (necesita Docker). El guion de la sesión está en [GUION_CLASE.md](GUION_CLASE.md).
 
 ## 1. Objetivo docente
 
@@ -21,9 +21,9 @@ Qué tienen que llevarse los alumnos:
 
 ## 2. Arquitectura
 
-![01_arquitectura](plantuml/01_arquitectura.svg)
+![01_arquitectura](../diagramas/01_arquitectura.svg)
 
-*Fuente: [plantuml/01_arquitectura.puml](plantuml/01_arquitectura.puml)*
+*Fuente: [../diagramas/01_arquitectura.puml](../diagramas/01_arquitectura.puml)*
 
 Decisiones de infraestructura:
 
@@ -37,9 +37,9 @@ Decisiones de infraestructura:
 
 ## 3. Proceso completo (ELT)
 
-![02_proceso_elt](plantuml/02_proceso_elt.svg)
+![02_proceso_elt](../diagramas/02_proceso_elt.svg)
 
-*Fuente: [plantuml/02_proceso_elt.puml](plantuml/02_proceso_elt.puml)*
+*Fuente: [../diagramas/02_proceso_elt.puml](../diagramas/02_proceso_elt.puml)*
 
 ### 3.1 ETL frente a ELT
 
@@ -63,39 +63,39 @@ Demostración en clase: cambiar un `order_status` en pgAdmin y comparar `bronze.
 
 ### 4.1 Linaje: de la fuente a Gold
 
-![03_linaje](plantuml/03_linaje.svg)
+![03_linaje](../diagramas/03_linaje.svg)
 
-*Fuente: [plantuml/03_linaje.puml](plantuml/03_linaje.puml)*
+*Fuente: [../diagramas/03_linaje.puml](../diagramas/03_linaje.puml)*
 
 ### 4.2 Fuentes operacionales (OLTP)
 
 Las relaciones entre sistemas (líneas discontinuas) **no existen como claves foráneas**: cada base de datos es independiente. Reconstruirlas es precisamente el trabajo de integración.
 
-![04_fuentes](plantuml/04_fuentes.svg)
+![04_fuentes](../diagramas/04_fuentes.svg)
 
-*Fuente: [plantuml/04_fuentes.puml](plantuml/04_fuentes.puml)*
+*Fuente: [../diagramas/04_fuentes.puml](../diagramas/04_fuentes.puml)*
 
 ### 4.3 Bronze: esquema impuesto en lectura
 
 Mismas columnas que la fuente. Los ficheros se leen **todo como STRING** (OpenCSVSerde no tipa) y en los CSV los vacíos llegan como `''`, no como `NULL`. Las tablas JDBC heredan los tipos de la fuente.
 
-![05_bronze](plantuml/05_bronze.svg)
+![05_bronze](../diagramas/05_bronze.svg)
 
-*Fuente: [plantuml/05_bronze.puml](plantuml/05_bronze.puml)*
+*Fuente: [../diagramas/05_bronze.puml](../diagramas/05_bronze.puml)*
 
 ### 4.4 Silver: tipado, limpio e integrado
 
 Cada tabla declara su **grano**. `ventas` es la tabla integrada que cruza las tres fuentes.
 
-![06_silver](plantuml/06_silver.svg)
+![06_silver](../diagramas/06_silver.svg)
 
-*Fuente: [plantuml/06_silver.puml](plantuml/06_silver.puml)*
+*Fuente: [../diagramas/06_silver.puml](../diagramas/06_silver.puml)*
 
 ### 4.5 Gold: modelo en estrella
 
-![07_gold](plantuml/07_gold.svg)
+![07_gold](../diagramas/07_gold.svg)
 
-*Fuente: [plantuml/07_gold.puml](plantuml/07_gold.puml)*
+*Fuente: [../diagramas/07_gold.puml](../diagramas/07_gold.puml)*
 
 ## 5. Explicación de cada fase
 
@@ -203,6 +203,8 @@ Con 100.000 pedidos en un Docker de un nodo **no se demuestra rendimiento**: las
 | `LOAD DATA` cargaba 0 filas sin error | Se supuso CRLF; solo reseñas y traducción usan CRLF | `LINES TERMINATED BY '\n'` |
 | Rutas `/sql/...` convertidas en `C:/Program Files/Git/...` | Conversión de rutas de Git Bash (MSYS) | `export MSYS_NO_PATHCONV=1` en los scripts |
 | `No such file or directory` al final de beeline | El usuario `hive` no tiene `$HOME` en la imagen | Inofensivo |
+| `ORDER BY` sobre tablas JDBC de MariaDB: error de sintaxis `NULLS FIRST ... FETCH NEXT` | El *pushdown* de Hive genera SQL que MariaDB no admite (PostgreSQL sí) | `SET hive.jdbc.pushdown.enable=false;` en la sesión. Silver y Gold no se ven afectados. La guía del alumno lo plantea como ejercicio sobre los límites de la federación |
+| `bash scripts/...` en PowerShell no encuentra Docker | En PowerShell, `bash` es WSL | Git Bash (VS Code lo abre por defecto con `.vscode/settings.json`); los scripts lo detectan y lo explican |
 
 ## 9. Ampliaciones y ejercicios propuestos
 

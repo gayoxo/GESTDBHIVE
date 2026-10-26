@@ -1,0 +1,48 @@
+@startuml 09_granularidad
+!theme plain
+title Trampa de granularidad: un pedido con 3 artículos y 2 pagos
+left to right direction
+
+package "silver.articulos (grano: línea)" {
+  object "artículo 1" as a1 {
+    precio = 50
+  }
+  object "artículo 2" as a2 {
+    precio = 30
+  }
+  object "artículo 3" as a3 {
+    precio = 20
+  }
+}
+
+package "bronze.pagos (grano: pago)" {
+  object "pago 1 (tarjeta)" as p1 {
+    importe = 80
+  }
+  object "pago 2 (cupón)" as p2 {
+    importe = 20
+  }
+}
+
+package "MAL: JOIN directo por order_id" #FFDDDD {
+  object "6 filas = 3 artículos × 2 pagos" as mal {
+    SUM(importe) = 300
+    pero el pedido pagó 100
+  }
+}
+
+package "BIEN: agregar antes de unir" #DDFFDD {
+  object "silver.pagos_pedido (grano: pedido)" as bien {
+    importe_pagado = 100
+    una fila por pedido
+  }
+}
+
+a1 --> mal
+a2 --> mal
+a3 --> mal
+p1 --> mal
+p2 --> mal
+p1 --> bien : GROUP BY order_id
+p2 --> bien
+@enduml

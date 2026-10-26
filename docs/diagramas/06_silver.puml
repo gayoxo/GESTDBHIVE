@@ -1,0 +1,93 @@
+@startuml 06_silver
+!theme plain
+hide circle
+skinparam linetype ortho
+
+package "silver · Parquet" #E8E8E8 {
+  entity clientes <<grano: customer_id>> {
+    * customer_id : STRING
+    --
+    customer_unique_id : STRING
+    codigo_postal : STRING  <<LPAD 5>>
+    ciudad : STRING         <<UPPER/TRIM>>
+    estado : STRING
+  }
+  entity vendedores <<grano: vendedor>> {
+    * seller_id : STRING
+    --
+    codigo_postal : STRING
+    ciudad : STRING   <<antes de la 1a coma>>
+    estado : STRING
+  }
+  entity productos <<grano: producto>> {
+    * product_id : STRING
+    --
+    categoria : STRING     <<'' -> sin_categoria>>
+    categoria_en : STRING  <<JOIN traducción>>
+    num_fotos : INT
+    peso_g : INT
+    largo_cm / alto_cm / ancho_cm : INT
+  }
+  entity pedidos <<grano: pedido>> {
+    * order_id : STRING
+    --
+    customer_id : STRING
+    estado : STRING
+    fecha_hora_compra : TIMESTAMP
+    fecha_compra : DATE
+    fecha_aprobacion / fecha_envio / fecha_entrega : TIMESTAMP
+    fecha_entrega_estimada : DATE
+    dias_entrega : INT        <<derivada>>
+    con_retraso : BOOLEAN     <<derivada>>
+  }
+  entity articulos <<grano: línea de pedido>> {
+    * order_id : STRING
+    * order_item_id : INT
+    --
+    product_id : STRING
+    seller_id : STRING
+    fecha_limite_envio : TIMESTAMP
+    precio : DECIMAL(12,2)
+    transporte : DECIMAL(12,2)
+  }
+  entity pagos_pedido <<grano: pedido>> {
+    * order_id : STRING
+    --
+    num_pagos : BIGINT
+    importe_pagado : DECIMAL
+    max_cuotas : INT
+    medios_pago : STRING
+  }
+  entity resenas <<grano: pedido>> {
+    * order_id : STRING
+    --
+    review_id : STRING
+    puntuacion : INT
+    titulo : STRING
+    comentario : STRING   <<sin saltos de línea>>
+    fecha_resena : TIMESTAMP
+  }
+  entity ventas <<grano: artículo entregado>> {
+    * order_id : STRING
+    * order_item_id : INT
+    --
+    customer_id / customer_unique_id : STRING
+    estado_cliente / ciudad_cliente : STRING
+    seller_id / estado_vendedor : STRING
+    product_id / categoria / categoria_en : STRING
+    fecha_compra : DATE
+    dias_entrega : INT
+    con_retraso : BOOLEAN
+    precio / transporte : DECIMAL(12,2)
+    puntuacion : INT
+  }
+}
+
+pedidos ||--|{ articulos
+pedidos }o--|| clientes
+articulos }o--|| vendedores
+articulos }o--|| productos
+pedidos ||--o| pagos_pedido
+pedidos ||--o| resenas
+ventas .up.> articulos : integra
+@enduml

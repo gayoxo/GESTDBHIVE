@@ -2,6 +2,8 @@
 
 Práctica de integración de fuentes heterogéneas y construcción de un Data Warehouse con Apache Hive 4, siguiendo una arquitectura por capas **Bronze → Silver → Gold**.
 
+> **Guía de la práctica paso a paso**: [docs/DESARROLLO.md](docs/DESARROLLO.md). Explica cada fase con diagramas, resultados esperados y las consultas finales resueltas. Este README es la referencia técnica rápida.
+
 Se usa el dataset público [Brazilian E-Commerce by Olist](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce): unos 100.000 pedidos reales anonimizados (2016–2018), repartidos entre tres sistemas de origen:
 
 | Fuente | Tecnología | Tablas |
@@ -10,7 +12,7 @@ Se usa el dataset público [Brazilian E-Commerce by Olist](https://www.kaggle.co
 | Sistema de pedidos | PostgreSQL | `orders`, `order_items` |
 | Ficheros | CSV y JSON | productos, categorías, pagos, reseñas |
 
-El modelo de datos del dataset está en [docs/olist_modelo_datos.puml](docs/olist_modelo_datos.puml) (fuente PlantUML) y [docs/olist_modelo_datos.svg](docs/olist_modelo_datos.svg) (imagen).
+El modelo de datos del dataset está en [docs/diagramas/00_olist_modelo_datos.svg](docs/diagramas/00_olist_modelo_datos.svg) (fuente PlantUML en el `.puml` del mismo nombre).
 
 ```text
 MariaDB ─┐
@@ -23,11 +25,13 @@ CSV / JSON ─┘    (externas,       (Parquet,        (estrella,
 
 | Servicio | URL | Uso | Credenciales (`.env`) |
 |---|---|---|---|
-| Hue | <http://localhost:8084> | Editor HiveQL | Se crea el usuario en el primer acceso |
-| pgAdmin | <http://localhost:8082> | PostgreSQL de datos | `PGADMIN_EMAIL` / `PGADMIN_PASSWORD` |
+| Hue | <http://localhost:8084> | Editor HiveQL | `HUE_ADMIN_USER` / `HUE_ADMIN_PASSWORD` |
+| pgAdmin | <http://localhost:8082> | PostgreSQL de datos (servidor ya registrado) | `PGADMIN_EMAIL` / `PGADMIN_PASSWORD` |
 | phpMyAdmin | <http://localhost:8083> | MariaDB | `olist` / `MARIADB_USER_PASSWORD` |
 | File Browser | <http://localhost:8085> | Ficheros de `datasets/` | `FILEBROWSER_ADMIN_USER` / `FILEBROWSER_ADMIN_PASSWORD` |
 | HiveServer2 | `localhost:10000` (JDBC), <http://localhost:10002> (web) | Motor Hive | — |
+
+**Para ver todas las direcciones, usuarios y contraseñas** de tu entorno: `bash scripts/accesos.sh`. También se muestran al final del preflight.
 
 Todos los puertos se publican solo en `127.0.0.1`. Hay además tres bases de datos internas que no se tocan: el PostgreSQL del Metastore, el PostgreSQL de Hue y el Metastore de Hive (`:9083`).
 
@@ -58,8 +62,14 @@ Lo marcado como *(generado)* y el fichero `.env` están en `.gitignore`: el proy
 ## Paso 0. Requisitos
 
 - Docker Desktop (en Windows con backend WSL2) y unos 8 GB de RAM libres.
-- Un terminal **bash**. En Windows, Git Bash. Todos los comandos se ejecutan desde la carpeta `GESDB-2.0`.
+- Un terminal **bash con acceso a Docker**. Todos los comandos se ejecutan desde la carpeta `GESDB-2.0`.
 - Libres los puertos 8082–8085, 3307, 5433, 9083, 10000 y 10002.
+
+> **Windows: usar Git Bash, no PowerShell.** En PowerShell, `bash` abre el bash de **WSL** (Linux), que normalmente no tiene Docker: el preflight falla con "se esta ejecutando el bash de WSL". Opciones:
+>
+> - **VS Code** (recomendado): abrir la carpeta del proyecto y *Terminal → Nuevo terminal*. El proyecto trae `.vscode/settings.json`, que abre **Git Bash** por defecto.
+> - **Desde PowerShell**: `& "C:\Program Files\Git\bin\bash.exe" scripts/preflight.sh`
+> - Abrir **Git Bash** desde el menú Inicio y hacer `cd` a la carpeta.
 
 Los drivers JDBC ([drivers/README.md](drivers/README.md)) y los 9 CSV de Olist ([datasets/olist/README.md](datasets/olist/README.md)) ya vienen incluidos en el proyecto.
 
@@ -80,17 +90,20 @@ Editar `.env` y sustituir todos los `CAMBIAR`:
 | `OLIST_READER_USER`, `OLIST_READER_PASSWORD` | Usuario de **solo lectura** con el que Hive lee MariaDB y PostgreSQL |
 | `PGADMIN_EMAIL`, `PGADMIN_PASSWORD` | Acceso a pgAdmin |
 | `HUE_SECRET_KEY` | Clave interna de Hue (cadena aleatoria larga) |
+| `HUE_ADMIN_USER`, `HUE_ADMIN_PASSWORD` | Acceso a Hue (el administrador se crea solo al arrancar) |
 | `FILEBROWSER_ADMIN_USER`, `FILEBROWSER_ADMIN_PASSWORD` | Acceso a File Browser (mínimo **12** caracteres) |
 
-> Las contraseñas de las bases de datos se fijan **la primera vez** que se crean sus volúmenes. Cambiarlas después en `.env` no cambia la base de datos: hay que empezar de cero (ver [Empezar de cero](#empezar-de-cero)). Las de File Browser y la del usuario lector sí se pueden cambiar en cualquier momento; se vuelven a aplicar en el siguiente arranque o con el paso 4.
+> Las contraseñas de las bases de datos se fijan **la primera vez** que se crean sus volúmenes. Cambiarlas después en `.env` no cambia la base de datos: hay que empezar de cero (ver [Empezar de cero](#empezar-de-cero)). Las de Hue (administrador), File Browser y la del usuario lector sí se pueden cambiar en cualquier momento; se vuelven a aplicar con `docker compose up -d` o, la del lector, con el paso 4.
 
 ## Paso 2. Levantar la infraestructura
 
 ```bash
-bash scripts/preflight.sh     # comprueba drivers, hue.ini y la sintaxis del compose
+bash scripts/preflight.sh     # comprueba Docker, .env, ficheros y finales de línea; muestra los accesos
 docker compose up -d
 docker compose ps
 ```
+
+Si el preflight indica algún `FALTA` o `ERROR`, el propio mensaje explica cómo corregirlo. Si termina bien, imprime la tabla de accesos (URL, usuario y contraseña de cada web).
 
 Deben aparecer 10 contenedores en marcha (`gesdb-*`). El servicio `gesdb-filebrowser-init` aparece como `Exited (0)`, que es lo correcto: solo prepara el usuario de File Browser y termina.
 
@@ -102,7 +115,7 @@ docker exec gesdb-hiveserver2 beeline -u jdbc:hive2://localhost:10000 -n hive -e
 
 Comprobaciones rápidas:
 
-1. Abrir Hue (<http://localhost:8084>). El primer usuario que se registra queda como administrador.
+1. Abrir Hue (<http://localhost:8084>) con `HUE_ADMIN_USER` / `HUE_ADMIN_PASSWORD`. El servidor web de Hue tarda unos segundos más que el contenedor en estar listo.
 2. En el editor **Hive** de Hue, ejecutar `SHOW DATABASES;`. Debe aparecer `default`.
 
 ## Paso 3. Preparar los ficheros (`landing`)
@@ -137,7 +150,7 @@ orders 99441 · order_items 112650         (PostgreSQL)
 
 El script crea las tablas, carga los CSV (`LOAD DATA` en MariaDB y `COPY` en PostgreSQL) y crea en ambas el usuario de solo lectura `OLIST_READER_USER`. Se puede repetir: vacía y recarga las tablas. Los datos se pueden revisar en phpMyAdmin y pgAdmin.
 
-Para registrar el servidor en pgAdmin: *Add New Server* → Host `postgres-data`, puerto `5432`, BD `olist`, usuario `olist`, contraseña `DATA_POSTGRES_PASSWORD`.
+En pgAdmin el servidor ya aparece registrado como **GESDB → Olist (postgres-data)**. Al abrirlo pide la contraseña de `olist` (`DATA_POSTGRES_PASSWORD`); se puede marcar *Save password*. Si no aparece es porque el volumen de pgAdmin se creó antes de esta configuración: ver [Solución de problemas](#solución-de-problemas).
 
 ## Paso 5. Hive: Bronze, Silver y Gold
 
@@ -241,6 +254,10 @@ docker compose up -d                    # y repetir desde el paso 2
 | Hue no abre y en el log aparece `password authentication failed for user "hue"` | La BD de Hue se creó con otra contraseña. `HUE_POSTGRES_PASSWORD` debe ser la del primer arranque, o empezar de cero. |
 | File Browser no acepta la contraseña | Debe tener ≥ 12 caracteres. Revisar `docker compose logs filebrowser-init`. |
 | `beeline` no conecta justo después de arrancar | HiveServer2 todavía arranca. Esperar 1–2 minutos. |
+| `ERROR: se esta ejecutando el bash de WSL` | Se ha lanzado `bash scripts/...` desde PowerShell. Usar Git Bash (ver [Paso 0](#paso-0-requisitos)). |
+| `FALTA ficheros con CRLF` | El clon convirtió los finales de línea. Volver a clonar el repositorio (incluye `.gitattributes`). |
+| `FALTA .env no define ...` | Falta una variable nueva de `.env.example` en tu `.env`: copiarla y darle valor. |
+| pgAdmin no muestra el servidor "Olist (postgres-data)" | El volumen de pgAdmin es anterior a `servers.json`. Ejecutar `MSYS_NO_PATHCONV=1 docker exec gesdb-pgadmin /venv/bin/python3 /pgadmin4/setup.py load-servers /pgadmin4/servers.json --user TU_PGADMIN_EMAIL` |
 | En Git Bash aparecen rutas como `C:/Program Files/Git/...` | Conversión automática de rutas de Git Bash. Los scripts ya exportan `MSYS_NO_PATHCONV=1`; para comandos manuales, hacer lo mismo. |
 | `02_cargar_fuentes.sh` carga 0 filas | Los CSV no están en `datasets/olist/` o se han modificado (finales de línea). Descargar de nuevo. |
 

@@ -1,0 +1,5 @@
+{
+  // Los scripts del proyecto son bash y necesitan Docker: en Windows el terminal
+  // debe ser Git Bash (el "bash" de PowerShell es el de WSL, sin Docker).
+  "terminal.integrated.defaultProfile.windows": "Git Bash"
+}

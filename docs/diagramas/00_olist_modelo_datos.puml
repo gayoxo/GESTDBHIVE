@@ -1,4 +1,4 @@
-@startuml olist_modelo_datos
+@startuml 00_olist_modelo_datos
 ' Modelo de datos del dataset publico Olist (9 CSV de Kaggle).
 ' Las relaciones son logicas: los CSV no tienen claves declaradas.
 ' Fuente: https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce

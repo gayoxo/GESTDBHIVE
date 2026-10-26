@@ -3,9 +3,9 @@
 # No modifica nada. Devuelve 0 si todo es correcto.
 set -uo pipefail
 cd "$(dirname "$0")/.."
+source scripts/_comun.sh && comprobar_entorno
 export MSYS_NO_PATHCONV=1  # Git Bash en Windows: no reescribir rutas del contenedor
 set -a; source <(tr -d '\r' < .env); set +a
-docker info >/dev/null 2>&1 || { echo 'Docker no esta en marcha: arrancar Docker Desktop.'; exit 1; }
 
 fallos=0
 comprobar() {  # nombre, esperado, obtenido

@@ -1,0 +1,27 @@
+@startuml 10_particiones
+!theme plain
+title Partition pruning: WHERE anio = 2018 AND mes = 5
+
+folder "warehouse/gold.db/fact_ventas/" {
+  folder "anio=2016" as y16 #EEEEEE {
+    folder "mes=9 · mes=10 · mes=12" as m16 #EEEEEE
+  }
+  folder "anio=2017" as y17 #EEEEEE {
+    folder "mes=1 … mes=12" as m17 #EEEEEE
+  }
+  folder "anio=2018" as y18 {
+    folder "mes=1 … mes=4" as m18a #EEEEEE
+    folder "mes=5" as m185 #C8F0C8 {
+      file "000000_0\n(Parquet)" as f185
+    }
+    folder "mes=6 … mes=8" as m18b #EEEEEE
+  }
+}
+
+note right of m185
+  Hive solo abre esta carpeta.
+  Las otras 22 particiones se
+  descartan en el plan, sin leerlas
+  (EXPLAIN DEPENDENCY → input_partitions).
+end note
+@enduml

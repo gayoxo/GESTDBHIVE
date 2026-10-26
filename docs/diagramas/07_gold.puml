@@ -1,0 +1,78 @@
+@startuml 07_gold
+!theme plain
+hide circle
+skinparam linetype ortho
+
+entity fact_ventas <<hechos · grano: artículo vendido>> #FFF3C4 {
+  order_id : STRING
+  order_item_id : INT
+  --
+  customer_id : STRING <<FK>>
+  seller_id : STRING <<FK>>
+  product_id : STRING <<FK>>
+  fecha_compra : DATE <<FK>>
+  --
+  precio : DECIMAL(12,2)
+  transporte : DECIMAL(12,2)
+  importe_total : DECIMAL(12,2)
+  dias_entrega : INT
+  con_retraso : BOOLEAN
+  puntuacion : INT
+  ==
+  anio : INT <<PARTITION>>
+  mes : INT <<PARTITION>>
+}
+
+entity dim_cliente {
+  * customer_id : STRING
+  --
+  customer_unique_id : STRING
+  codigo_postal : STRING
+  ciudad : STRING
+  estado : STRING
+}
+entity dim_vendedor {
+  * seller_id : STRING
+  --
+  codigo_postal : STRING
+  ciudad : STRING
+  estado : STRING
+}
+entity dim_producto {
+  * product_id : STRING
+  --
+  categoria : STRING
+  categoria_en : STRING
+  num_fotos : INT
+  peso_g : INT
+  largo_cm / alto_cm / ancho_cm : INT
+}
+entity dim_tiempo {
+  * fecha : DATE
+  --
+  anio : INT
+  trimestre : INT
+  mes : INT
+  anio_mes : STRING
+  dia : INT
+  dia_semana : INT
+  fin_de_semana : BOOLEAN
+}
+entity ventas_mensuales <<agregado>> {
+  estado_cliente : STRING
+  categoria : STRING
+  anio : INT
+  mes : INT
+  --
+  articulos_vendidos : BIGINT
+  pedidos : BIGINT
+  ingresos : DECIMAL
+  puntuacion_media : DOUBLE
+}
+
+dim_cliente ||--o{ fact_ventas
+dim_vendedor ||--o{ fact_ventas
+dim_producto ||--o{ fact_ventas
+dim_tiempo ||--o{ fact_ventas
+fact_ventas ..> ventas_mensuales : GROUP BY
+@enduml

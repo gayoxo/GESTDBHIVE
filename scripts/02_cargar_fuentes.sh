@@ -3,6 +3,7 @@
 # y el usuario de solo lectura que utilizara Hive. Se puede repetir.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+source scripts/_comun.sh && comprobar_entorno
 export MSYS_NO_PATHCONV=1  # Git Bash en Windows: no reescribir rutas del contenedor
 
 set -a; source <(tr -d '\r' < .env); set +a

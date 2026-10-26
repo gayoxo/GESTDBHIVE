@@ -131,11 +131,17 @@ services:
         condition: service_healthy
       hiveserver2:
         condition: service_started
+    # Mismo arranque que la imagen (migrate + supervisor) creando antes el
+    # administrador de .env, para no depender del "primer usuario que entra".
+    command: ["/bin/sh", "/usr/share/hue/hue-start.sh"]
     volumes:
       - ./config/hue/hue.ini:/usr/share/hue/desktop/conf/hue.ini:ro
+      - ./config/hue/hue-start.sh:/usr/share/hue/hue-start.sh:ro
     environment:
       HUE_SECRET_KEY: ${HUE_SECRET_KEY:?Set HUE_SECRET_KEY}
       HUE_DB_PASSWORD: ${HUE_POSTGRES_PASSWORD}
+      HUE_ADMIN_USER: ${HUE_ADMIN_USER:-admin}
+      HUE_ADMIN_PASSWORD: ${HUE_ADMIN_PASSWORD:?Set HUE_ADMIN_PASSWORD}
     ports:
       - "127.0.0.1:8084:8888"
     networks: [gesdb_net]
@@ -147,8 +153,13 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:?Set PGADMIN_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?Set PGADMIN_PASSWORD}
+      # Sin contrasena maestra adicional y con el servidor de datos ya registrado
+      # (servers.json solo se lee la primera vez que se crea el volumen)
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+      PGADMIN_SERVER_JSON_FILE: /pgadmin4/servers.json
     volumes:
       - pgadmin_data:/var/lib/pgadmin
+      - ./config/pgadmin/servers.json:/pgadmin4/servers.json:ro
     ports:
       - "127.0.0.1:8082:80"
     networks: [gesdb_net]

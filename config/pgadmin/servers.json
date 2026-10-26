@@ -1,0 +1,13 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Olist (postgres-data)",
+      "Group": "GESDB",
+      "Host": "postgres-data",
+      "Port": 5432,
+      "MaintenanceDB": "olist",
+      "Username": "olist",
+      "SSLMode": "prefer"
+    }
+  }
+}

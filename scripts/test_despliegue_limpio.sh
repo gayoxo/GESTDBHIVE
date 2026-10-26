@@ -4,6 +4,7 @@
 #   bash scripts/test_despliegue_limpio.sh --borrar-todo
 set -euo pipefail
 cd "$(dirname "$0")/.."
+source scripts/_comun.sh && comprobar_entorno
 export MSYS_NO_PATHCONV=1  # Git Bash en Windows: no reescribir rutas del contenedor
 
 if [ "${1:-}" != "--borrar-todo" ]; then

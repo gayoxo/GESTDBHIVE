@@ -1,0 +1,42 @@
+@startuml 01_arquitectura
+!theme plain
+skinparam componentStyle rectangle
+left to right direction
+
+package "Gestión web" {
+  [Hue :8084] as hue
+  [phpMyAdmin :8083] as pma
+  [pgAdmin :8082] as pga
+  [File Browser :8085] as fb
+}
+
+package "Fuentes operacionales (OLTP)" {
+  database "MariaDB\nolist\ncustomers, sellers" as maria
+  database "PostgreSQL datos\nolist\norders, order_items" as pgdata
+  folder "datasets/landing\nproductos, categorias,\npagos (CSV), resenas (JSON)" as files
+}
+
+package "Apache Hive 4.0.1" {
+  [HiveServer2 :10000\n(Tez local)] as hs2
+  [Metastore :9083] as hms
+  folder "warehouse/\nbronze.db silver.db gold.db\n(Parquet)" as wh
+}
+
+package "Servicios internos" {
+  database "PostgreSQL\nmetastore_db" as pgmeta
+  database "PostgreSQL\nhue" as pghue
+}
+
+hue --> hs2 : HiveQL
+hue --> pghue
+pma --> maria
+pga --> pgdata
+fb --> files
+
+hs2 --> hms
+hms --> pgmeta
+hs2 --> maria : JDBC (hive_reader)
+hs2 --> pgdata : JDBC (hive_reader)
+hs2 --> files : file:///datasets
+hs2 --> wh : CTAS / INSERT
+@enduml
