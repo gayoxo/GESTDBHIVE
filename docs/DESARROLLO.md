@@ -814,6 +814,7 @@ Al ejecutar la consulta (sin `EXPLAIN`) se obtienen 52.783 pedidos `delivered` e
 |---|---|
 | `ERROR: se esta ejecutando el bash de WSL` | Estás en PowerShell. Usa el terminal Git Bash de VS Code (sección 2.1). |
 | `ERROR: Docker no responde` | Arranca Docker Desktop y espera a que indique *Engine running*. |
+| Al usar `beeline` directamente salen líneas `SLF4J: Class path contains multiple SLF4J bindings` o `[WARN] Failed to create directory: /home/hive/.beeline` | Son avisos sin importancia de la imagen de Hive, no errores. `scripts/03_hive.sh` ya los oculta. Un error de verdad empieza por `Error:` o `FAILED:`. |
 | `FALTA .env todavia contiene valores CAMBIAR` o `.env no define ...` | Revisa `.env` (sección 2.3). |
 | `FALTA ficheros con CRLF` | El clon cambió los finales de línea. Vuelve a clonar el repositorio. |
 | `beeline` no conecta justo después de arrancar | HiveServer2 tarda 1–2 minutos. Espera y repite. |

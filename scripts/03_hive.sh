@@ -16,9 +16,13 @@ fi
 
 for fichero in "$@"; do
   echo "===== $fichero"
-  docker exec gesdb-hiveserver2 beeline -u jdbc:hive2://localhost:10000 -n hive \
+  # user.home=/tmp: la imagen no tiene /home/hive (beeline guarda ahi su historial).
+  # Se filtran los avisos SLF4J y las lineas en blanco del modo silencioso;
+  # los errores de beeline se siguen mostrando y paran el script (pipefail).
+  docker exec -e HADOOP_CLIENT_OPTS=-Duser.home=/tmp gesdb-hiveserver2 beeline -u jdbc:hive2://localhost:10000 -n hive \
     --silent=true --showHeader=true --outputformat=table \
     --hivevar reader_user="$OLIST_READER_USER" \
     --hivevar reader_password="$OLIST_READER_PASSWORD" \
-    -f "/opt/gesdb/sql/hive/$(basename "$fichero")"
+    -f "/opt/gesdb/sql/hive/$(basename "$fichero")" 2>&1 \
+    | { grep -v -e '^SLF4J:' -e '^[[:space:]]*$' || true; }
 done
