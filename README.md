@@ -2,7 +2,14 @@
 
 Práctica de integración de fuentes heterogéneas y construcción de un Data Warehouse con Apache Hive 4, siguiendo una arquitectura por capas **Bronze → Silver → Gold**.
 
-> **Guía de la práctica paso a paso**: [docs/DESARROLLO.md](docs/DESARROLLO.md). Explica cada fase con diagramas, resultados esperados y las consultas finales resueltas. Este README es la referencia técnica rápida.
+## 👉 Guía de la práctica (empieza aquí)
+
+**[docs/DESARROLLO.md](docs/DESARROLLO.md)**: la guía paso a paso del experimento. Va desde el `git clone` hasta la capa Gold, con diagramas, los resultados esperados en cada fase y las consultas finales resueltas.
+
+- En GitHub: <https://github.com/gayoxo/GESTDBHIVE/blob/master/docs/DESARROLLO.md>
+- En tu copia local, tras clonar: `docs/DESARROLLO.md` (en VS Code, ábrelo con `Ctrl+Shift+V` para ver los diagramas).
+
+Este README es solo la referencia técnica rápida. Para hacer la práctica, sigue la guía.
 
 Se usa el dataset público [Brazilian E-Commerce by Olist](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce): unos 100.000 pedidos reales anonimizados (2016–2018), repartidos entre tres sistemas de origen:
 
@@ -99,6 +106,8 @@ Editar `.env` y sustituir todos los `CAMBIAR`:
 
 ```bash
 bash scripts/preflight.sh     # comprueba Docker, .env, ficheros y finales de línea; muestra los accesos
+docker compose down -v --remove-orphans   # arranque limpio: borra restos de arranques anteriores
+rm -rf warehouse/*.db datasets/landing
 docker compose up -d
 docker compose ps
 ```

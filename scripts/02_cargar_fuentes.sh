@@ -10,6 +10,16 @@ set -a; source <(tr -d '\r' < .env); set +a
 : "${OLIST_READER_USER:?Falta OLIST_READER_USER en .env}"
 : "${OLIST_READER_PASSWORD:?Falta OLIST_READER_PASSWORD en .env}"
 
+# Las claves de .env solo se aplican al crear el volumen: si el volumen ya
+# existia (otra carpeta, .env cambiado), se vuelven a fijar aqui.
+echo '== Sincronizando la clave de olist con .env'
+docker exec gesdb-mariadb-data sh -c \
+  'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" -e "ALTER USER \"olist\"@\"%\" IDENTIFIED BY \"$MARIADB_PASSWORD\""'
+docker exec gesdb-postgres-data sh -c \
+  'psql -q -U olist -d olist -v p="$POSTGRES_PASSWORD" <<SQL
+ALTER USER olist PASSWORD :'"'"'p'"'"';
+SQL'
+
 echo '== MariaDB: customers, sellers'
 docker exec -i gesdb-mariadb-data sh -c \
   'mariadb --local-infile=1 -uolist -p"$MARIADB_PASSWORD" olist' < sql/fuentes/mariadb_olist.sql

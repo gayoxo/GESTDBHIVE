@@ -162,7 +162,20 @@ Si alguna línea dice `FALTA` o `ERROR`, el propio mensaje indica cómo corregir
 
 ### 3.2 Arrancar los contenedores
 
+Primero **elimina cualquier resto de un arranque anterior**: contenedores, volúmenes de las bases de datos y ficheros generados. Hazlo siempre, aunque sea la primera vez (si no hay nada, no pasa nada).
+
 **Ejecuta**:
+
+```bash
+docker compose down -v --remove-orphans
+rm -rf warehouse/*.db datasets/landing
+```
+
+> **¿Por qué?** Las bases de datos guardan sus datos en volúmenes de Docker que **sobreviven** a los contenedores, y las contraseñas de `.env` solo se aplican la **primera vez** que se crea cada volumen. Si ya habías levantado la práctica antes (en esta carpeta o en otra copia del repositorio, porque todas usan el mismo proyecto `gesdb`), se reutilizarían los volúmenes antiguos con sus contraseñas antiguas y algunos accesos fallarían (por ejemplo, el usuario `olist` en phpMyAdmin). Con `down -v` partimos de cero.
+>
+> ⚠️ Esto **borra todo lo que hayas cargado** en las bases de datos y en Hive. Hazlo al empezar la práctica, no a mitad de ella.
+
+Ahora arranca los contenedores:
 
 ```bash
 docker compose up -d
